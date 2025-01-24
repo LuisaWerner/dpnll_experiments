@@ -1,0 +1,21 @@
+======================================================================
+Test Accuracies for Each Run
+======================================================================
+Run 1: Test Accuracy: 0.9136
+Run 2: Test Accuracy: 0.9100
+Run 3: Test Accuracy: 0.8944
+Run 4: Test Accuracy: 0.8976
+Run 5: Test Accuracy: 0.9076
+Run 6: Test Accuracy: 0.9156
+Run 7: Test Accuracy: 0.9236
+Run 8: Test Accuracy: 0.9224
+Run 9: Test Accuracy: 0.9248
+Run 10: Test Accuracy: 0.8880
+======================================================================
+Summary Statistics
+======================================================================
+Mean Test Accuracy: 0.909760
+Max Test Accuracy: 0.924800
+Min Test Accuracy: 0.888000
+Standard Deviation of Test Accuracy: 0.012200
+Mean Symbolic Iteration time: 0.478373s

@@ -1,0 +1,17 @@
+============================================================
+Results for Experiments on MNIST-Sum with n_digits = 4
+============================================================
+
+ACCURACY
+------------------------------------------------------------
+Average Test Accuracy: 0.8262
+Standard Deviation of Test Accuracy: 0.0211
+Max Test Accuracy: 0.8504
+Min Test Accuracy: 0.7864
+
+RUNTIMES
+------------------------------------------------------------
+Average Symbolic Time per Iteration: 1.248512s
+Standard Deviation of Symbolic Time: 0.062751s
+Max Symbolic Time: 1.322689s
+Min Symbolic Time: 1.152862s

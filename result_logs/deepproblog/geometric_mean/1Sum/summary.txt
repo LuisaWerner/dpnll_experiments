@@ -1,0 +1,17 @@
+======================================================================
+Test Accuracies for Each Run
+======================================================================
+Run 1: Test Accuracy: 0.6182, Total runtime: 934.9535851478577
+Run 1: Test Accuracy: 0.9568, Total runtime: 934.9535851478577
+Run 1: Test Accuracy: 0.6058, Total runtime: 934.9535851478577
+Run 1: Test Accuracy: 0.9356, Total runtime: 934.9535851478577
+Run 1: Test Accuracy: 0.9438, Total runtime: 934.9535851478577
+======================================================================
+Summary Statistics
+======================================================================
+Mean Test Accuracy: 0.812040
+Max Test Accuracy: 0.956800
+Min Test Accuracy: 0.605800
+Standard Deviation of Test Accuracy: 0.163519
+Mean Symbolic Iteration time: 0.019445s
+Mean total runtime : 921.936485s

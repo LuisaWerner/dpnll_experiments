@@ -1,0 +1,11 @@
+Parameters: n_epochs = 1, batch_size=2, lr=0.001, k=3, num_runs=5, provenance=difftopkproofs, N_digits=1
+Test Accuracy and Runtime for Each Run:
+Run 1 (seed: 1) - Test Accuracy: 0.9486, Avg Runtime: 0.0009 seconds
+Run 2 (seed: 12) - Test Accuracy: 0.9596, Avg Runtime: 0.0010 seconds
+Run 3 (seed: 1234) - Test Accuracy: 0.9386, Avg Runtime: 0.0009 seconds
+Run 4 (seed: 12345) - Test Accuracy: 0.9584, Avg Runtime: 0.0009 seconds
+Run 5 (seed: 123456) - Test Accuracy: 0.9510, Avg Runtime: 0.0009 seconds
+
+Summary Statistics:
+Test Accuracy - Max: 0.9596, Min: 0.9386, Avg: 0.9512, Std Dev: 0.0076
+Runtime - Max: 0.0010 seconds, Min: 0.0009 seconds, Avg: 0.0009 seconds, Std Dev: 0.0001 seconds
