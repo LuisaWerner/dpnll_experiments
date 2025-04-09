@@ -5,6 +5,8 @@ We provide the cloned repositories that we used as baselines and provide the con
 We further provide the result summary files of DPNL and the baselines.
 The citations of the baselines are listed below. 
 
+In addition, we provide some code examples for DPNL in directory `oracle_examples`
+
 ```
 ├── baseline_repositories/
 |    ├── a-nesi/
@@ -31,7 +33,15 @@ The citations of the baselines are listed below.
 |    └──deepproblog
 |    └──dpnl
 |    └──scallop
-...
+|
+├──oracle_examples
+|	 └──dpnl_vs_problog.py
+|	 └──dpnl.py
+|	 └──graph_reachability.py
+|	 └──prolog_logic.py
+|	 └──prolog_solver.py
+|	 └──z3_logic.py
+	 
 ```
 
 ## Reproduction of baselines 
