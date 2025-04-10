@@ -1,11 +1,11 @@
-# Overview of DPNL experiments
+# Overview of DPNL 
 This repository contains the result files and the code to reproduce the baselines reported for DPNL. 
 It has the following file structure. 
 We provide the cloned repositories that we used as baselines and provide the configurations with which we obtained the results reported in the paper. 
 We further provide the result summary files of DPNL and the baselines.
 The citations of the baselines are listed below. 
 
-In addition, we provide the source code of DPNL and additional examples (graph reachability) in the folder `probabilistic_reasoning_implementation`.
+In addition, the folder `dpnl` contains a Python implementation of **Dynamic Probabilistic NeuroSymbolic Logic (DPNL)** — a flexible framework to perform symbolic reasoning over **probabilistic inputs**. It supports custom symbolic functions, logic-based reasoning, and includes comparisons to external systems like **ProbLog**.
 
 ```
 ├── baseline_repositories/
@@ -34,12 +34,10 @@ In addition, we provide the source code of DPNL and additional examples (graph r
 |    └──dpnl
 |    └──scallop
 |
-├──oracle_examples
+├──dpnl
 |	 └──dpnl_vs_problog.py
 |	 └──dpnl.py
 |	 └──graph_reachability.py
-|	 └──prolog_logic.py
-|	 └──prolog_solver.py
 |	 └──z3_logic.py
 	 
 ```

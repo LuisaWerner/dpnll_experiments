@@ -1,10 +1,13 @@
 from typing import Any
 
 import z3
-from dpnl import Logic, unknown, SATLogicS
+from dpnl import Logic, unknown, LogicS
 
 
 class Z3Logic(Logic):
+    """
+    Interface with the Z3 SMT solver
+    """
 
     def __init__(self):
         super().__init__()
@@ -39,6 +42,10 @@ class Z3Logic(Logic):
             assert False, "Should not be possible if the logic symbolic function is well defined"
 
 
+# As we can see by comparing the following function with the OptimizedGraphReachabilityOracle in graph_reachability.py,
+# sometimes encoding the symbolic function in logic is as hard as designing a custom oracle optimized for the symbolic
+# function.
+
 def graph_reachability_S(N: int, src: int, dst: int):
     """
     Create a symbolic function for the graph reachability problem for a fixed size of graph and determined src and dst.
@@ -65,6 +72,7 @@ def graph_reachability_S(N: int, src: int, dst: int):
             if i != j:
                 axioms.append(z3.Implies(z3.And(reached[i], edge[i][j]), reached[j]))
 
+    # Since the logic function is monotone, we can make use of negation by failure of proof and forgot this part
     """for k in range(N-1):
         for j in range(N):
             if j != src:
@@ -73,27 +81,9 @@ def graph_reachability_S(N: int, src: int, dst: int):
     # Query
     query = reached[dst]
 
-    return SATLogicS(
+    return LogicS(
         logic=Z3Logic(),
         axioms=axioms,
         inputs_tuple=inputs,
         query=query
     )
-
-
-if __name__ == "__main__":
-
-    from dpnl import BoolRndVar, PNLProblem
-    import time
-
-    t = time.time()
-    N = 7
-    X = ()
-    for i in range(N):
-        for j in range(N):
-            X += (BoolRndVar("", 0.5),)
-    S = graph_reachability_S(N, 0, 1)
-    pnl_problem = PNLProblem(X, S)
-    oracle = Z3Logic.OracleMonotoneSAT(S)
-    pnl_problem.prob(oracle, True)
-    print(time.time()-t)

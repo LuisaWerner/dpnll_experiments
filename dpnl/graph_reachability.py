@@ -137,9 +137,9 @@ def print_graph_matrix(g):
     for i in range(len(g)):
         for j in range(len(g)):
             if g[i][j].value is True:
-                print(f"{i}--->{j}")
+                print(f"{i}------------>{j}")
             elif not g[i][j].defined():
-                print(f"{i}-{g[i][j].domain_distrib[True]:.2f}->{j}")
+                print(f"{i}--(?:{g[i][j].domain_distrib[True]:.2f})-->{j}")
 
     print("-------------------------")
 
@@ -155,7 +155,16 @@ def compare_oracles(g, src, dst):
 
 
 if __name__ == '__main__':
-    print("\n=== Test 1: No Path Expected ===")
+
+    print("\n=== Graph Reachability tests ===")
+    print("This code tests some feature about the graph reachability probabilistic reasoning task")
+    print("A graph correspond to NxN matrix representing the edges (N = number of nodes).")
+    print("Each edge can be present (valuated to True), absent (valuated to False) or probabilistic (valuated to ?"
+          " along with a probability of being present)")
+    print("The probabilistic reasoning task is to compute the probability of having a path from one node to another")
+    print("We estimate the probability that there is a path from node 0 to node 1.")
+
+    print("\n=== Test Oracle 1: No Path Expected Found by the Oracles ===")
     g = [
         [True, False, False],
         [True, unknown, unknown],
@@ -165,7 +174,7 @@ if __name__ == '__main__':
     compare_oracles(g, 0, 1)
     compare_oracles(g, 0, 2)
 
-    print("\n=== Test 2: Definite Path Exists ===")
+    print("\n=== Test Oracle 2: Definite Path Exists Found by the Oracles ===")
     g = [
         [False, True, False],
         [True, False, True],
@@ -175,7 +184,8 @@ if __name__ == '__main__':
     compare_oracles(g, 0, 1)
     compare_oracles(g, 0, 2)
 
-    print("\n=== Test 3: Oracle Undecided For The Basic Oracle (due to unknown edges) ===")
+    print("\n=== Test Oracle 3: Oracle Undecided For The Basic Oracle (due to ? edges)"
+          "But Not For The Complete Oracle ===")
     g = [
         [True, True, unknown],
         [False, unknown, True],
@@ -185,12 +195,12 @@ if __name__ == '__main__':
     compare_oracles(g, 0, 1)
     compare_oracles(g, 0, 2)
 
-    print("\n=== Test 4: Full DPNL Inference (with branching) ===")
+    print("\n=== Test 4: Full DPNL Inference ===")
 
-    g = random_graph(6, 0.7)
+    g = random_graph(4, 0.0)
     pb = PNLProblem((g, 0, 3), graph_reachability)
 
-    print("Graph for DPNL Inference (T = True, F = False, ? = Unknown):")
+    print("Random Graph for DPNL Inference :")
     print_graph_matrix(g)
 
     prob_basic = pb.prob(
@@ -203,6 +213,5 @@ if __name__ == '__main__':
         True
     )
 
-    print(f"Each unknown edge of the graph has random probability.")
     print(f"Estimated probability path exists from 0 to 3 with basic oracle: {prob_basic:.4f}")
     print(f"Estimated probability path exists from 0 to 3 with optimized oracle: {prob_optimised:.4f}")

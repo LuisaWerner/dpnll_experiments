@@ -3,6 +3,8 @@ import random
 import time
 import tempfile
 import subprocess
+import signal
+import sys
 from dpnl import (
     BoolRndVar, PNLProblem,
     BasicOracle, unknown
@@ -11,6 +13,24 @@ from graph_reachability import (
     graph_reachability, OptimizedGraphReachabilityOracle, random_graph
 )
 import z3_logic
+
+# == Handling the kill of subprocess when the program is killed ==
+active_subprocess = {}
+
+
+def handle_sigterm(signum, frame):
+    print("Received termination signal. Performing cleanup...")
+    print("active subprocess : ", active_subprocess)
+    print("Killing active subprocess...")
+    for proc in active_subprocess.values():
+        proc.kill()
+        proc.wait()
+    print("Cleanup complete. Exiting.")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, handle_sigterm)
+signal.signal(signal.SIGTERM, handle_sigterm)
 
 
 # === DPNL Run Function ===
@@ -30,7 +50,7 @@ def run_dpnl(graph, mode):
                 X += (graph[i][j],)
         S = z3_logic.graph_reachability_S(N, 0, 1)
         pnl_problem = PNLProblem(X, S)
-        oracle = z3_logic.Z3Logic.OracleMonotoneSAT(S)
+        oracle = z3_logic.Z3Logic.LogicOracleMonotone(S)
     else:
         raise ValueError("Unknown mode")
 
@@ -74,6 +94,8 @@ def run_problog(graph, timeout=30):
             stderr=subprocess.PIPE,
             text=True
         )
+        active_subprocess[id(proc)] = proc
+
 
         # Wait with timeout
         try:
@@ -92,6 +114,7 @@ def run_problog(graph, timeout=30):
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
+            del active_subprocess[id(proc)]
             return "TIMEOUT", timeout
 
     except Exception as e:
@@ -139,17 +162,16 @@ def format_result(result, duration, width=25):
 
 if __name__ == "__main__":
 
-    print("Note do not stop this program before it ends...")
-    print("If it is manually stopped some subprocess may stay alive...")
-    print("This program will last for around 15min")
+    print("This program will last for around 20min...")
     print("\n=== 🔍 Comparison: DPNL vs. ProbLog on Graph Reachability ===")
     print("Each row corresponds to a random NxN graph (N = number of nodes).")
-    print("Each each edge have a certain probability of being inside the graph.")
+    print("Each possible edge have a certain probability of being present in the graph.")
     print("We estimate the probability that there is a path from node 0 to node 1.")
-    print("Columns show the probability estimate and time taken (in seconds):")
-    print(" - DPNL Basic Oracle    = Inference using the simple oracle")
+    print("Columns show the probability result and time taken (in seconds):")
+    print(" - DPNL Basic Oracle    = Inference using the automatically-generated basic oracle")
     print(" - DPNL Complete Oracle = Inference using the complete hand-made oracle")
-    print(" - DPNL Complete Oracle = Inference using the complete logic oracle using Algorithm 3 of the paper")
+    print(" - DPNL Complete Oracle = Inference using the complete automatically-generated logic oracle based on"
+          " Algorithm 3 of the paper")
     print(" - ProbLog              = Result from the ProbLog logic programming system")
     print("Format: <probability> (<time>s)")
     print()
@@ -161,17 +183,10 @@ if __name__ == "__main__":
     for N in range(3, 10):
         graph = [[BoolRndVar("", random.uniform(0, 1)) for _ in range(N)] for _ in range(N)]
 
-        # DPNL (basic)
-        dpnl_basic_result, dpnl_basic_time = run_with_timeout(run_dpnl, (graph, "basic"), timeout=3*30)
-
-        # DPNL (hand-crafted)
-        dpnl_complete_result, dpnl_complete_time = run_with_timeout(run_dpnl, (graph, "complete"), timeout=3*30)
-
-        # ProbLog (with internal timeout handling)
-        problog_result, problog_time = run_problog(graph, timeout=3*30)
-
-        # DPNL (logic based)
-        dpnl_logic_result, dpnl_logic_time = run_with_timeout(run_dpnl, (graph, "logic"), timeout=3*30)
+        dpnl_basic_result, dpnl_basic_time = run_with_timeout(run_dpnl, (graph, "basic"), timeout=90)
+        dpnl_complete_result, dpnl_complete_time = run_with_timeout(run_dpnl, (graph, "complete"), timeout=90)
+        problog_result, problog_time = run_problog(graph, timeout=90)
+        dpnl_logic_result, dpnl_logic_time = run_with_timeout(run_dpnl, (graph, "logic"), timeout=90)
 
         print(f"{N:<3} | "
               f"{format_result(dpnl_basic_result, dpnl_basic_time)} | "
