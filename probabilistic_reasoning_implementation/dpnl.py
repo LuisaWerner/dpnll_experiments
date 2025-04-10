@@ -31,6 +31,9 @@ class Unknown:
     def __repr__(self):
         return 'unknown'
 
+    def __eq__(self, other):
+        return isinstance(other, Unknown)
+
 
 unknown = Unknown()  # Global singleton for unknown value
 
@@ -100,6 +103,44 @@ class RndVarIter:
         return iter(self._array)
 
 
+# === Oracle instance ===
+
+class Oracle(abc.ABC):
+    def __init__(self, S: Callable):
+        """
+        This is abstract class to represent the oracles. Since an oracle should often be combined with a good heuristic
+        to be efficient in practice in DPNL. An oracle object also define how to choose an variables in DPNL when it
+        has answered unknown.
+        :param S : The symbolic function related to this oracle
+        """
+        self.S = S
+
+    @abc.abstractmethod
+    def __call__(self, X, S_output):
+        """
+        The actual oracle algorithm
+        :param X: Structured input of S (e.g., a graph), containing RndVars
+        :param S_output: The desired output of S
+        :return: True iif for all valuations of the RndVars in X, S(X)=S_output, False iif for all valuations of the
+        RndVars in X, S(X)!=S_output and an instance of unknown otherwise.
+        """
+        pass
+
+    def choose_variable_heuristic(self, X, S_output):
+        """
+        This method return a variable of X that is unknown to do the branching in DPNL. By default, it is the
+        blind heuristic who just choose the first unknown valuated variable it finds in X. But this method is meant
+        to be overwritten.
+        :param X: Structured input of S (e.g., a graph), containing RndVars
+        :param S_output: The desired output of S
+        :return: A RndVar v of X such that v.value = unknown.
+        """
+        for v in RndVarIter(X):
+            if not v.defined():
+                return v
+        return None
+
+
 # === Probabilistic Neurosymbolic Logic Problem ===
 
 class PNLProblem:
@@ -122,7 +163,7 @@ class PNLProblem:
         self.X = X
         self.rnd_vars = RndVarIter(X)
 
-    def prob(self, S_oracle: Callable, S_output: Any, choose: Callable = None):
+    def prob(self, S_oracle: Oracle, S_output: Any):
         """
         Computes the probability that S(X) == S_output using recursive inference.
         Uses an oracle to shortcut evaluation when possible.
@@ -135,14 +176,6 @@ class PNLProblem:
         Returns:
         - A float between 0 and 1 representing the probability
         """
-        if choose is None:
-            # Default: pick first undefined variable
-            def blind_heuristic(pnl_instance: PNLProblem, S_output, oracle_answer):
-                for X_var in self.rnd_vars:
-                    if not X_var.defined():
-                        return X_var
-
-            choose = blind_heuristic
 
         def dpnl():
             oracle_answer = S_oracle(self.X, S_output)
@@ -153,7 +186,7 @@ class PNLProblem:
             else:
                 # Branch over an undefined variable
                 assert isinstance(oracle_answer, Unknown)
-                rnd_var = choose(self, S_output, oracle_answer)
+                rnd_var = S_oracle.choose_variable_heuristic(self.X, S_output)
                 result = 0.0
                 for val, prob in rnd_var.domain_distrib.items():
                     rnd_var.value = val
@@ -225,32 +258,34 @@ def wrapper_getattribute(self, name):
     return object.__getattribute__(self, name)
 
 
-def basic_oracle(S: Callable):
-    """
-    Automatically builds an oracle for a symbolic function S.
-    Evaluates S(X) and:
-    - Returns True if result == expected
-    - Returns False if result ≠ expected
-    - Returns Unknown if any RndVar is accessed while undefined
-    """
+class BasicOracle(Oracle):
+    def __init__(self, S: Callable):
+        super().__init__(S)
+        self.root_cause_variable = None
 
-    def S_oracle(X, o):
+    def __call__(self, X, S_output):
+        """
+        Automatically builds an oracle for a symbolic function S.
+        Evaluates S(X) and:
+        - Returns True if result == S_output
+        - Returns False if result ≠ S_output
+        - Returns Unknown if any RndVar is accessed while undefined
+        """
+        self.root_cause_variable = None
         with temporary_getattribute(RndVar, wrapper_getattribute):
             try:
-                return S(X) == o
+                return self.S(X) == S_output
             except RndVarAccessError as e:
-                return Unknown(optional={'root_cause_var': e.var})
+                self.root_cause_variable = e.var
+                return unknown
 
-    return S_oracle
-
-
-def basic_oracle_choose_heuristic(pnl_problem: PNLProblem, S_output, oracle_answer: Unknown):
-    """
-    A simple variable selection heuristic:
-    - Directly uses the variable that caused the oracle to return Unknown
-    - Assumes this is the most informative branching point
-    """
-    return oracle_answer.optional['root_cause_var']
+    def choose_variable_heuristic(self, X, S_output):
+        """
+        A simple variable selection heuristic:
+        - Directly uses the variable that caused the oracle to return Unknown
+        - Assumes this is the most informative branching point
+        """
+        return self.root_cause_variable
 
 
 # === Logic oracles ===
@@ -261,7 +296,7 @@ def basic_oracle_choose_heuristic(pnl_problem: PNLProblem, S_output, oracle_answ
 # It provides a function to automatically derive an oracle from a LogicS instance : AbstractLogic.Oracle
 #
 
-class AbstractLogic(abc.ABC):
+class Logic(abc.ABC):
     def __init__(self):
         pass
 
@@ -270,19 +305,37 @@ class AbstractLogic(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def CheckProof(self, assumptions: list[Any], conclusion: Any):
+    def Prove(self, assumptions: list[Any], conclusion: Any, vars2capture: tuple = ()):
+        """
+        The solver main method.
+        :param assumptions: The list of assumptions formulas of the logics
+        :param conclusion: The conclusion to prove
+        :param vars2capture: Additional tuple of variables of the logic
+        :return:
+            If assumptions :- conclusion return True, tuple(true if var is used in the proof for var in vars2capture)
+            Else return False, tuple(value of var in the counter example model for var in vars2capture)
+        """
         pass
 
-    def Oracle(self, S):
-        """
-        This function automatically derive an oracle for S using Algorithm 3.
-        :param S: A logic symbolic function
-        :return: A logic oracle for S
-        """
+    class LogicOracle(Oracle):
+        def __init__(self, S):
+            """
+            A specific version of the logical oracle for instance of logics where we want to consider negation by failure.
+            """
+            assert isinstance(S, LogicS)
+            super().__init__(S)
+            self.pos_counter_model = None
+            self.neg_counter_model = None
 
-        assert isinstance(S, LogicS) and isinstance(S.logic, type(self))
+        def __call__(self, X: tuple[RndVar], S_output: bool):
 
-        def oracle(X, S_output: bool):
+            self.pos_counter_model = None
+            self.neg_counter_model = None
+
+            assert isinstance(self.S, LogicS)  # Just for typechecking in pycharm
+            S = self.S
+            logic = S.logic
+
             assumptions = []
             for i in range(len(S.inputs_tuple)):
                 if X[i].defined():
@@ -292,24 +345,96 @@ class AbstractLogic(abc.ABC):
                         assumptions.append(S.logic.Not(S.inputs_tuple[i]))
 
             res = unknown
-            pos_proof = S.logic.CheckProof(S.axioms + assumptions, S.query)
-            neg_proof = S.logic.CheckProof(S.axioms + assumptions, S.logic.Not(S.query))
+            pos_proof, pos_captured = logic.Prove(S.axioms + assumptions, S.query, vars2capture=S.inputs_tuple)
+            neg_proof, neg_captured = logic.Prove(S.axioms + assumptions, logic.Not(S.query), vars2capture=S.inputs_tuple)
 
             if pos_proof:
                 res = True
             elif neg_proof:
                 res = False
+            else:
+                self.pos_counter_model = pos_captured
+                self.neg_counter_model = neg_captured
 
             if not isinstance(res, Unknown) and not S_output:
                 res = not res
 
             return res
 
-        return oracle
+        def choose_variable_heuristic(self, X: tuple[RndVar], S_output: bool):
+            """
+            This heuristic return the first variable that is unknown and has different or unknown value in the models
+            because this variable is likely to be important in the decision process.
+            """
+            for i in range(len(X)):
+                if not X[i].defined() and (self.pos_counter_model[i] != self.neg_counter_model[i]):
+                    return X[i]
+            for i in range(len(X)):
+                if not X[i].defined() and (
+                        unknown == self.pos_counter_model[i] or unknown == self.neg_counter_model[i]):
+                    return X[i]
+
+    class OracleMonotoneSAT(Oracle):
+        def __init__(self, S):
+            """
+            This oracle is made for SATLogicS that are monotones. (ex : that code Prolog without negation)
+            """
+            assert isinstance(S, SATLogicS)
+            super().__init__(S)
+            self.used_vars = None
+
+        def __call__(self, X: tuple[RndVar], S_output: bool):
+
+            self.used_vars = None
+
+            assert isinstance(self.S, SATLogicS)  # Just for typechecking in pycharm
+            S = self.S
+            logic = S.logic
+
+            unknown2true_assumptions = []
+            unknown2false_assumptions = []
+            for i in range(len(S.inputs_tuple)):
+                if X[i].defined():
+                    if X[i].value:
+                        unknown2true_assumptions.append(S.inputs_tuple[i])
+                        unknown2false_assumptions.append(S.inputs_tuple[i])
+                    else:
+                        unknown2true_assumptions.append(logic.Not(S.inputs_tuple[i]))
+                        unknown2false_assumptions.append(logic.Not(S.inputs_tuple[i]))
+                else:
+                    unknown2true_assumptions.append(S.inputs_tuple[i])
+                    unknown2false_assumptions.append(logic.Not(S.inputs_tuple[i]))
+
+            res = unknown
+            unknown2true_proof, used_vars = logic.Prove(S.axioms + unknown2true_assumptions, S.query, vars2capture=S.inputs_tuple)
+            unknown2false_proof, _ = logic.Prove(S.axioms + unknown2false_assumptions, S.query)
+
+            if unknown2false_proof:
+                # It means that even if we put all unknown instance to false S return true
+                res = True
+            if not unknown2true_proof:
+                # It means that even if we all unknown instance to true S return false
+                res = False
+            else:
+                self.used_vars = used_vars
+
+            if not unknown == res and not S_output:
+                res = not res
+
+            return res
+
+        def choose_variable_heuristic(self, X: tuple[RndVar], S_output: bool):
+            """
+            This heuristic return the first variable that is unknown and has different or unknown value in the models
+            because this variable is likely to be important in the decision process.
+            """
+            for i in range(len(X)):
+                if not X[i].defined() and self.used_vars[i]:
+                    return X[i]
 
 
 class LogicS:
-    def __init__(self, logic: AbstractLogic, axioms: list[Any], inputs_tuple: tuple, query: Any):
+    def __init__(self, logic: Logic, axioms: list[Any], inputs_tuple: tuple, query: Any):
         """
         The class define a symbolic function S which considering a valuations of the logic formulas of inputs_tuple
         and the axioms return True if and only if there is a proof of query.
@@ -323,7 +448,7 @@ class LogicS:
         self.inputs_tuple = inputs_tuple
         self.query = query
 
-    def __call__(self, X):
+    def __call__(self, X: tuple[RndVar]):
         assert isinstance(X, tuple) and len(X) == len(self.inputs_tuple)
         assumptions = []
         for i in range(len(self.inputs_tuple)):
@@ -331,7 +456,31 @@ class LogicS:
                 assumptions.append(self.inputs_tuple[i])
             else:
                 assumptions.append(self.logic.Not(self.inputs_tuple[i]))
-        return self.logic.CheckProof(self.axioms + assumptions, self.query)
+        return self.logic.Prove(self.axioms + assumptions, self.query)
 
 
+class SATLogicS:
+    def __init__(self, logic: Logic, axioms: list[Any], inputs_tuple: tuple, query: Any):
+        """
+        The class define a symbolic function S which considering a valuations of the logic formulas of inputs_tuple
+        and the axioms return True if and only if there is a proof of query.
+        :param logic: The logic in which it is expressed
+        :param axioms: The list of axioms formulas that represents the knowledge of symbolic function context
+        :param inputs_tuple: The tuple of logic formulas or atoms that constitutes the inputs of the function
+        :param query: The formula that represent the meaning of the function
+        """
+        self.logic = logic
+        self.axioms = axioms
+        self.inputs_tuple = inputs_tuple
+        self.query = query
 
+    def __call__(self, X: tuple[RndVar]):
+        assert isinstance(X, tuple) and len(X) == len(self.inputs_tuple)
+        assumptions = []
+        for i in range(len(self.inputs_tuple)):
+            if X[i].value:
+                assumptions.append(self.inputs_tuple[i])
+            else:
+                assumptions.append(self.logic.Not(self.inputs_tuple[i]))
+        # The query is satisfiable because there is no proof of the query to be wrong
+        return self.logic.Prove(self.axioms + assumptions, self.logic.Not(self.query)) is not True

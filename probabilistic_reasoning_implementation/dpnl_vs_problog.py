@@ -5,13 +5,12 @@ import tempfile
 import subprocess
 from dpnl import (
     BoolRndVar, PNLProblem,
-    basic_oracle, basic_oracle_choose_heuristic, unknown
+    BasicOracle, unknown
 )
 from graph_reachability import (
-    graph_reachability, graph_reachability_complete_oracle,
-    graph_reachability_complete_oracle_choose_heuristic, random_graph
+    graph_reachability, OptimizedGraphReachabilityOracle, random_graph
 )
-import prolog_logic
+import z3_logic
 
 
 # === DPNL Run Function ===
@@ -21,23 +20,21 @@ def run_dpnl(graph, mode):
     pnl_problem = PNLProblem((graph, 0, 1), graph_reachability)
 
     if mode == "basic":
-        oracle = basic_oracle(graph_reachability)
-        choose = basic_oracle_choose_heuristic
+        oracle = BasicOracle(graph_reachability)
     elif mode == "complete":
-        oracle = graph_reachability_complete_oracle
-        choose = graph_reachability_complete_oracle_choose_heuristic
+        oracle = OptimizedGraphReachabilityOracle()
     elif mode == "logic":
         X = ()
         for i in range(N):
             for j in range(N):
                 X += (graph[i][j],)
-        pnl_problem = PNLProblem(X, prolog_logic.graph_reachability_S(N, 0, 1))
-        oracle = pnl_problem.S.logic.Oracle(pnl_problem.S)
-        choose = prolog_logic.choose_heuristic
+        S = z3_logic.graph_reachability_S(N, 0, 1)
+        pnl_problem = PNLProblem(X, S)
+        oracle = z3_logic.Z3Logic.OracleMonotoneSAT(S)
     else:
         raise ValueError("Unknown mode")
 
-    prob = pnl_problem.prob(oracle, True, choose)
+    prob = pnl_problem.prob(oracle, True)
     return prob
 
 
@@ -95,7 +92,6 @@ def run_problog(graph, timeout=30):
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
-            elapsed_time = time.time() - start_time
             return "TIMEOUT", timeout
 
     except Exception as e:
@@ -143,6 +139,9 @@ def format_result(result, duration, width=25):
 
 if __name__ == "__main__":
 
+    print("Note do not stop this program before it ends...")
+    print("If it is manually stopped some subprocess may stay alive...")
+    print("This program will last for around 15min")
     print("\n=== 🔍 Comparison: DPNL vs. ProbLog on Graph Reachability ===")
     print("Each row corresponds to a random NxN graph (N = number of nodes).")
     print("Each each edge have a certain probability of being inside the graph.")
@@ -163,16 +162,16 @@ if __name__ == "__main__":
         graph = [[BoolRndVar("", random.uniform(0, 1)) for _ in range(N)] for _ in range(N)]
 
         # DPNL (basic)
-        dpnl_basic_result, dpnl_basic_time = run_with_timeout(run_dpnl, (graph, "basic"), timeout=30)
+        dpnl_basic_result, dpnl_basic_time = run_with_timeout(run_dpnl, (graph, "basic"), timeout=3*30)
 
         # DPNL (hand-crafted)
-        dpnl_complete_result, dpnl_complete_time = run_with_timeout(run_dpnl, (graph, "complete"), timeout=30)
+        dpnl_complete_result, dpnl_complete_time = run_with_timeout(run_dpnl, (graph, "complete"), timeout=3*30)
 
         # ProbLog (with internal timeout handling)
-        problog_result, problog_time = run_problog(graph, timeout=30)
+        problog_result, problog_time = run_problog(graph, timeout=3*30)
 
         # DPNL (logic based)
-        dpnl_logic_result, dpnl_logic_time = run_with_timeout(run_dpnl, (graph, "logic"), timeout=30)
+        dpnl_logic_result, dpnl_logic_time = run_with_timeout(run_dpnl, (graph, "logic"), timeout=3*30)
 
         print(f"{N:<3} | "
               f"{format_result(dpnl_basic_result, dpnl_basic_time)} | "

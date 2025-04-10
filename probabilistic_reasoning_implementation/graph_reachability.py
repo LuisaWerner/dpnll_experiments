@@ -1,14 +1,14 @@
 import random
 from dpnl import (
     BoolRndVar, PNLProblem, RndVar,
-    basic_oracle, basic_oracle_choose_heuristic,
-    unknown
+    BasicOracle, unknown, Oracle
 )
 
 
 # =====================================
 # 📌 Symbolic Function: Graph Reachability
 # =====================================
+
 
 def graph_reachability(X: tuple[list[list[RndVar]], int, int]):
     """
@@ -32,83 +32,85 @@ def graph_reachability(X: tuple[list[list[RndVar]], int, int]):
 
 
 # =====================================
-# 🔮 Complete Oracle for Graph Reachability
+# Complete and Optimized Oracle for Graph Reachability
 # =====================================
 
-def graph_reachability_complete_oracle(X: tuple[list[list[RndVar]], int, int], S_output: bool):
-    """
-    A complete oracle that forces all undefined edge variables to both True and False
-    to check whether the result is determined under all completions.
-    """
-    g, src, dst = X
+class OptimizedGraphReachabilityOracle(Oracle):
+    def __init__(self):
+        super().__init__(graph_reachability)
+        self.path_when_unknown_is_true = None
 
-    # Replace unknowns with True
-    unknown2true_g = [
-        [BoolRndVar(var.name, var.domain_distrib[True], value=var.value if var.defined() else True)
-         for var in row] for row in g
-    ]
+    def _find_path(self, g: list[list[RndVar]], src:int, dst:int, consider_unknown_as:bool):
 
-    # Replace unknowns with False
-    unknown2false_g = [
-        [BoolRndVar(var.name, var.domain_distrib[True], value=var.value if var.defined() else False)
-         for var in row] for row in g
-    ]
+        seen = set()
+        path = [src]
 
-    result_if_true = graph_reachability((unknown2true_g, src, dst))
-    result_if_false = graph_reachability((unknown2false_g, src, dst))
+        class FoundPath(Exception):
+            pass
 
-    if result_if_false is True:
-        return True if S_output else False
-    if result_if_true is False:
-        return False if S_output else True
+        def dfs():
+            cur = path[-1]
+            if cur not in seen:
+                seen.add(cur)
+                if cur == dst:
+                    raise FoundPath()
+                for node in range(len(g)):
+                    # We slightly modify the classic alogrithm to take into consider wheter we consider unknown as
+                    # true or false
+                    if g[cur][node].defined():
+                        if g[cur][node].value:
+                            path.append(node)
+                            dfs()
+                    elif consider_unknown_as:
+                        path.append(node)
+                        dfs()
+            path.pop()
 
-    return unknown
+        try:
+            dfs()
+            return None
+        except FoundPath:
+            return path
 
+    def __call__(self, X: tuple[list[list[RndVar]], int, int], S_output: bool):
+        self.path_when_unknown_is_true = None
+        g, src, dst = X
+        path_when_unknown_is_true = self._find_path(g, src, dst, consider_unknown_as=True)
+        path_when_unknown_is_false = self._find_path(g, src, dst, consider_unknown_as=False)
 
-# =====================================
-# 🎯 Heuristic for Selecting Most Informative Edge
-# =====================================
+        res = unknown
+        if path_when_unknown_is_true is None:
+            # Whatever the valuations of the non valuated variables there is no path then we return False
+            res = False
+        if path_when_unknown_is_false is not None:
+            # Whatever the valuations of the non valuated variables there is a path then we return True
+            res = True
+        # If there are only path from src to dst that contains non-valuated edges
 
-def graph_reachability_complete_oracle_choose_heuristic(pnl_problem: PNLProblem, S_output, oracle_answer):
-    """
-    Chooses an undefined edge variable that lies on a path from `src` to `dst`
-    composed only of edges that are True or Unknown.
-    """
-    g, src, dst = pnl_problem.X
-    seen = set()
-    path = [src]
+        if res == unknown:
+            # Saving information for the choosing heuristic
+            self.path_when_unknown_is_true = path_when_unknown_is_true
 
-    class FoundPath(Exception):
-        pass
+        # We switch the result according to the expected output from graph reachability
+        if res != unknown and S_output is False:
+            res = not res
 
-    def dfs():
-        cur = path[-1]
-        if cur not in seen:
-            seen.add(cur)
-            if cur == dst:
-                raise FoundPath()
-            for node in range(len(g)):
-                if g[cur][node].value is not False:
-                    path.append(node)
-                    dfs()
-        path.pop()
+        return res
 
-    try:
-        dfs()
-        raise AssertionError("No path found, but oracle indicated uncertainty")
-    except FoundPath:
+    def choose_variable_heuristic(self, X, S_output):
+        g, src, dst = X
+        path = self.path_when_unknown_is_true
         for i in range(len(path) - 1):
             edge_var = g[path[i]][path[i + 1]]
             if not edge_var.defined():
                 return edge_var
-
         print("DEBUG PATH:", path)
         print("DEBUG EDGE STATES:", [[var.value for var in row] for row in g])
         raise AssertionError("No undefined variable found on path — inconsistency in oracle logic")
 
 
 # =====================================
-# 🧪 Tests and Demonstration
+# Tests and Demonstration
 # =====================================
 
 def graph_map_to_RndVar(g):
@@ -125,7 +127,7 @@ def random_graph(N: int, proportion_of_missing_edge: float = 0.0):
     choice_list = [unknown]
     if proportion_of_missing_edge < 1.0:
         choice_list = [False] * max(0, int(1 / (1 - proportion_of_missing_edge)) - 1) + [unknown]
-    return [[BoolRndVar(f'{i}-{j}', 0.5, value=random.choice(choice_list))
+    return [[BoolRndVar(f'{i}-{j}', random.uniform(0.0, 1.0), value=random.choice(choice_list))
              for j in range(N)] for i in range(N)]
 
 
@@ -137,14 +139,14 @@ def print_graph_matrix(g):
             if g[i][j].value is True:
                 print(f"{i}--->{j}")
             elif not g[i][j].defined():
-                print(f"{i}-?->{j}")
+                print(f"{i}-{g[i][j].domain_distrib[True]:.2f}->{j}")
 
     print("-------------------------")
 
 
 def compare_oracles(g, src, dst):
-    basic = basic_oracle(graph_reachability)
-    complete = graph_reachability_complete_oracle
+    basic = BasicOracle(graph_reachability)
+    complete = OptimizedGraphReachabilityOracle()
 
     print_graph_matrix(g)
     print(f"Basic Oracle  (0 → {dst}):", basic((g, src, dst), True))
@@ -191,11 +193,16 @@ if __name__ == '__main__':
     print("Graph for DPNL Inference (T = True, F = False, ? = Unknown):")
     print_graph_matrix(g)
 
-    prob = pb.prob(
-        basic_oracle(pb.S),
-        True,
-        choose=basic_oracle_choose_heuristic
+    prob_basic = pb.prob(
+        BasicOracle(graph_reachability),
+        True
     )
 
-    print(f"Each unknown edge is considered to have a probability of being present of 0.5")
-    print(f"Estimated probability path exists from 0 to 3: {prob:.4f}")
+    prob_optimised = pb.prob(
+        OptimizedGraphReachabilityOracle(),
+        True
+    )
+
+    print(f"Each unknown edge of the graph has random probability.")
+    print(f"Estimated probability path exists from 0 to 3 with basic oracle: {prob_basic:.4f}")
+    print(f"Estimated probability path exists from 0 to 3 with optimized oracle: {prob_optimised:.4f}")

@@ -1,8 +1,10 @@
+from typing import Any
+
 import z3
-from dpnl import AbstractLogic, LogicS
+from dpnl import Logic, unknown, SATLogicS
 
 
-class Z3Logic(AbstractLogic):
+class Z3Logic(Logic):
 
     def __init__(self):
         super().__init__()
@@ -10,34 +12,88 @@ class Z3Logic(AbstractLogic):
     def Not(self, formula):
         return z3.Not(formula)
 
-    def CheckProof(self, assumptions: list, conclusion):
+    def Prove(self, assumptions: list[Any], conclusion: Any, vars2capture: tuple = ()):
         s = z3.Solver()
-        for formula in assumptions:
-            s.add(formula)
-        return str(s.check(z3.Not(conclusion))) == "unsat"
+        s.reset()
+        s.add(z3.Not(conclusion))
+        check = str(s.check(*assumptions))
+        if check == "unsat":
+            # There is a proof
+            core = s.unsat_core()
+            return True, tuple(var in core for var in vars2capture)
+        elif check == "sat":
+            # There is no proof
+            model = s.model()  # Get the counter example model
+
+            def convert2bool(val):
+                if val is None:
+                    return unknown
+                try:
+                    return bool(val)
+                except z3.z3types.Z3Exception:
+                    return unknown
+
+            return False, tuple(convert2bool(model[var]) for var in vars2capture)
+
+        else:
+            assert False, "Should not be possible if the logic symbolic function is well defined"
 
 
-# Example of definition of Z3 LogicS symbolic function : self-driving car example
+def graph_reachability_S(N: int, src: int, dst: int):
+    """
+    Create a symbolic function for the graph reachability problem for a fixed size of graph and determined src and dst.
+    :param N: The number of node of the graph
+    :param src: The source node
+    :param dst: The end node to reach from the source node
+    :return: A graph reachability symbolic logic function for graphs of size N with determined src and dst
+    """
 
-# Inputs logic variables
-obstacle_ahead = z3.Bool('obstacle_ahead')
-brake_ok = z3.Bool('brake_ok')
-road_slippery = z3.Bool('road_slippery')
-self_speed = z3.Int('self_speed')  # We suppose that it takes a finite range of value between 0 and 100 for example
-dist_obstacle = z3.Int('dist_obstacle')  # We suppose that it takes a finite range of value between 0 and 100 for example
+    # Creating the variables
+    edge = [[z3.Bool(f"edge({i},{j})") for j in range(N)] for i in range(N)]
+    reached = [z3.Bool(f"reached({j})") for j in range(N)]
 
-# Internal logic variables
-reaction_time = 1  # 5 s of creation time
-danger = z3.And(obstacle_ahead, z3.Or(z3.Not(brake_ok), road_slippery))
-time_for_reacting = dist_obstacle / self_speed
-should_break = z3.And(danger, 5 * reaction_time < time_for_reacting)
+    # Inputs variables of the function
+    inputs = ()
+    for i in range(N):
+        for j in range(N):
+            inputs += (edge[i][j],)
 
-axioms = []
+    # Axioms
+    axioms = [reached[src]]
+    for i in range(N):
+        for j in range(N):
+            if i != j:
+                axioms.append(z3.Implies(z3.And(reached[i], edge[i][j]), reached[j]))
 
-# The symbolic function that determine if the autonomous car should break or not
-S_should_break = LogicS(
-    logic=Z3Logic(),
-    axioms=[],
-    inputs_tuple=(obstacle_ahead, brake_ok, road_slippery, self_speed, dist_obstacle),
-    query=should_break
-)
+    """for k in range(N-1):
+        for j in range(N):
+            if j != src:
+                axioms.append(z3.Implies(reached[k+1][j], z3.Or(*[z3.And(reached[k][i], edge[i][j]) for i in range(N)])))"""
+
+    # Query
+    query = reached[dst]
+
+    return SATLogicS(
+        logic=Z3Logic(),
+        axioms=axioms,
+        inputs_tuple=inputs,
+        query=query
+    )
+
+
+if __name__ == "__main__":
+
+    from dpnl import BoolRndVar, PNLProblem
+    import time
+
+    t = time.time()
+    N = 7
+    X = ()
+    for i in range(N):
+        for j in range(N):
+            X += (BoolRndVar("", 0.5),)
+    S = graph_reachability_S(N, 0, 1)
+    pnl_problem = PNLProblem(X, S)
+    oracle = Z3Logic.OracleMonotoneSAT(S)
+    pnl_problem.prob(oracle, True)
+    print(time.time()-t)

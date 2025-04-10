@@ -5,7 +5,7 @@ We provide the cloned repositories that we used as baselines and provide the con
 We further provide the result summary files of DPNL and the baselines.
 The citations of the baselines are listed below. 
 
-In addition, we provide some code examples for DPNL in directory `oracle_examples`
+In addition, we provide the source code of DPNL and additional examples (graph reachability) in the folder `probabilistic_reasoning_implementation`.
 
 ```
 ├── baseline_repositories/
