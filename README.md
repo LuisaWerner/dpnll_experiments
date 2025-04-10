@@ -5,7 +5,7 @@ We provide the cloned repositories that we used as baselines and provide the con
 We further provide the result summary files of DPNL and the baselines.
 The citations of the baselines are listed below. 
 
-In addition, the folder `dpnl` contains a Python implementation of **Dynamic Probabilistic NeuroSymbolic Logic (DPNL)** — a flexible framework to perform symbolic reasoning over **probabilistic inputs**. It supports custom symbolic functions, logic-based reasoning, and includes comparisons to external systems like **ProbLog**.
+In addition, the folder `dpnl` contains a Python implementation of **Dynamic Probabilistic NeuroSymbolic Logic (DPNL)** — a flexible framework to perform symbolic reasoning over **probabilistic inputs**. It supports custom symbolic functions, logic-based reasoning, and includes comparisons to external systems like **ProbLog**. Instructions to run the code are given in an additional `dpnl/Readme.md` file. 
 
 ```
 ├── baseline_repositories/
