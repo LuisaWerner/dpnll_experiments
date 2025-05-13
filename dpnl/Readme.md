@@ -1,80 +1,47 @@
-# Dynamic Probabilistic NeuroSymbolic Logic (DPNL)
+# DPNL
 
-This project provides a Python implementation of **Dynamic Probabilistic NeuroSymbolic Logic (DPNL)** — a flexible framework to perform symbolic reasoning over **probabilistic inputs**. It supports custom symbolic functions, logic-based reasoning, and includes comparisons to external systems like **ProbLog**.
-
----
-
-## Project Structure
-
-| File | Description |
-|------|-------------|
-| `dpnl.py` | Core implementation of DPNL: probabilistic variables, recursive inference, oracles, and logic integration. |
-| `graph_reachability.py` | Contains the `graph_reachability` symbolic function and a custom optimized oracle for reasoning over uncertain graphs. |
-| `z3_logic.py` | Encodes symbolic functions in first-order logic using Z3 and builds corresponding DPNL-compatible oracles. |
-| `dpnl_vs_problog.py` | Experimental script that compares DPNL (in multiple modes) against ProbLog for graph reachability inference. |
+**DPNL** is a Python framework for combining logic-based symbolic reasoning with probabilistic inputs.
+It allows users to model complex problems involving uncertainty, logic, and structure — such as graph analysis, symbolic addition, and more — using a declarative yet efficient framework.
 
 ---
 
-## What is DPNL?
+## 📁 Folder Structure
 
-DPNL is a form of **neurosymbolic inference** that:
-- Handles structured inputs (`X`) with discrete random variables (`RndVar`)
-- Applies a symbolic function `S(X)`
-- Computes `P(S(X) == output)` using a dynamic recursive algorithm
-- Uses **oracles** to shortcut reasoning when full inference isn't needed
+| Folder                | Description |
+|-----------------------|-------------|
+| `core/`               | Core abstractions of the DPNL framework, including symbolic inputs, probabilistic variables (`RndVar`), oracle definitions, the main `PNLProblem` inference engine, and caching interfaces. |
+| `oracles/`            | Implements different oracle strategies, such as basic evaluation-based oracles, enumeration-based oracles, and formal logic-driven oracles used to guide branching in probabilistic inference. |
+| `logics/`             | Provides the bridge between DPNL and external logic systems. Currently supports SAT logic, allowing symbolic problems to be encoded as SAT instances for use with logic-based oracles. |
+| `cachings/`           | Defines hashing strategies to cache intermediate results in DPNL. Contains SAT-based component-caching using unit propagation to avoid redundant computation. |
 
-It supports:
-- **Automatic oracle construction** (e.g., from a Python function `S`)
-- **Logic-based symbolic functions** (`LogicS`) with provers (e.g., Z3)
-- **Custom heuristics** for branching decisions
 
 ---
 
-# Running the Correctness Experiments
+## 🔧 Core Components
 
-The correctness experiment is in `dpnl_vs_problog.py`.
-It compares the output probability results (and time of computation) of :
-
-- `DPNL (Basic Oracle)`: automatic oracle based on early evaluation
-- `DPNL (Optimized Oracle)`: handcrafted oracle with domain-specific optimizations
-- `DPNL (Logic Oracle)`: symbolic function encoded in logic (e.g., Z3)
-- `ProbLog`: a logic programming system with probabilistic inference
-
-### To Run:
-```bash
-python dpnl_vs_problog.py
-```
-
-This runs multiple trials of random graphs and prints:
-
-```
-N   | DPNL Basic Oracle | DPNL Hand-Crafted Oracle | DPNL Logic Oracle | ProbLog
-----|-------------------|--------------------------|-------------------|--------
-3   | 0.7890 (0.01s)     | 0.7890 (0.01s)           | 0.7890 (0.02s)    | 0.7889 (0.90s)
-...
-```
-
-⚠️ Note: This may take **10-20 minutes** to complete.
+### `core/`
+Defines the foundational abstractions:
+- `Input` and `Symbolic` for probabilistic symbolic functions
+- `RndVar` for random variables with unknown values
+- `Oracle` and `CachingHash` for decision-making and optimization
+- `PNLProblem` for executing DPNL inference
 
 ---
 
-## Features
-
-- Generic symbolic reasoning over probabilistic inputs
-- Multiple oracle types for inference speed trade-offs
-- Logic-based reasoning using Z3 SMT solver
-- Oracle-guided branching with heuristics
-- Correctness comparison against ProbLog
+### `logics/`
+Interfaces with symbolic logic systems:
+- Currently supports Boolean logic using SAT solvers via the `pysat` library
+- Provides symbolic-to-SAT conversion and clause generation
 
 ---
 
-## Requirements
+### `oracles/`
+Implements different oracle strategies:
+- `BasicOracle` executes symbolic functions directly and observes partial evaluations
+- `EnumerationOracle`, `CombinationOracle`, and `LogicOracle` offer flexibility and formal logic-based reasoning
 
-- Python 3.8+
-- [z3-solver](https://pypi.org/project/z3-solver/)
-- [ProbLog](https://dtai.cs.kuleuven.be/problog/) installed and available via CLI (optional, for comparison)
+---
 
-Install dependencies:
-```bash
-pip install z3-solver
-```
+### `cachings/`
+Efficient caching of DPNL evaluations:
+- `SATCachingHash` reduces redundant computation by hashing simplified SAT clause representations using unit propagation

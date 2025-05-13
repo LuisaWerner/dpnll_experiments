@@ -1,11 +1,13 @@
 # Overview of DPNL 
-This repository contains the result files and the code to reproduce the baselines reported for DPNL. 
+This repository contains the code base for the paper `DPNL: A DPLL-based Algorithm for Probabilistic Neurosymbolic Learning`.
+It the implementation of DPNL, the result files and the code to reproduce the baselines reported for DPNL. 
 It has the following file structure. 
-We provide the cloned repositories that we used as baselines and provide the configurations with which we obtained the results reported in the paper. 
-We further provide the result summary files of DPNL and the baselines.
-The citations of the baselines are listed below. 
 
-In addition, the folder `dpnl` contains a Python implementation of **Dynamic Probabilistic NeuroSymbolic Logic (DPNL)** — a flexible framework to perform symbolic reasoning over **probabilistic inputs**. It supports custom symbolic functions, logic-based reasoning, and includes comparisons to external systems like **ProbLog**. Instructions to run the code are given in an additional `dpnl/Readme.md` file. 
+* The folder `dpnl` contains a Python implementation of **Dynamic Probabilistic NeuroSymbolic Logic (DPNL)** — a flexible framework to perform symbolic reasoning over **probabilistic inputs**. It supports custom symbolic functions, logic-based reasoning, and includes comparisons to external systems like **ProbLog**. Instructions to run the code are given in an additional `dpnl/Readme.md` file.
+* The directories `GRAPH_REACHABILTY` and ` MNIST_N_SUM` contain the source code of the symbolic experiments 
+* We provide the cloned repositories that we used as baselines and provide the configurations with which we obtained the results reported in the paper. 
+* We further provide the result summary files of DPNL and the baselines on the neurosymbolic task.
+The citations of the baselines are listed below. 
 
 ```
 ├── baseline_repositories/
@@ -35,14 +37,94 @@ In addition, the folder `dpnl` contains a Python implementation of **Dynamic Pro
 |    └──scallop
 |
 ├──dpnl
-|	 └──dpnl_vs_problog.py
-|	 └──dpnl.py
-|	 └──graph_reachability.py
-|	 └──z3_logic.py
+|	 └──core
+|	 └──logics
+|	 └──oracles
+|	 └──Readme.md
+|	 └──...
+|
+├──GRAPH-REACHABILTY
+├──MNIST-N-SUM
+
 	 
 ```
 
-## Reproduction of baselines 
+# DPNL
+DPNL is a Python framework that combines logic-based symbolic reasoning with probabilistic modeling.
+It provides an extensible architecture for defining, executing, and optimizing inference over symbolic functions that depend on uncertain inputs.
+This repository includes the DPNL core engine, logic integrations, inference oracles, caching strategies, and real-world examples like graph reachability and MNIST-style symbolic addition.
+
+---
+
+## Features
+
+- Define symbolic functions with probabilistic inputs
+- Choose from multiple oracles for inference control (enumerative, logic-based, hand-crafted)
+- Perform exact or approximate probabilistic reasoning
+- Support for SAT logic and integration with external tools like ProbLog
+- Built-in caching to accelerate repeated inference
+- Example problems to demonstrate effectiveness
+
+---
+
+## Installation & Dependencies
+
+To use or extend this project, ensure you have the following Python packages installed:
+
+```bash
+pip install numpy networkx pysat cloudpickle
+```
+
+> Additionally, to run ProbLog-related comparisons, install ProbLog 2:
+- [https://dtai.cs.kuleuven.be/problog/](https://dtai.cs.kuleuven.be/problog/)
+
+---
+
+## Project Structure
+
+```
+DPNL/
+├── dpnl/                  # Core implementation of DPNL
+├── GRAPH-REACHABILITY/    # DPNL applied to probabilistic graph path finding
+├── MNIST-N-SUM/           # DPNL applied to probabilistic symbolic addition
+```
+
+---
+
+## Example Use Cases
+
+### Graph Reachability
+
+Estimate the probability that a path exists from source to destination in a graph where edges may or may not exist.
+
+```bash
+cd dpnl/GRAPH-REACHABILITY
+python run.py
+```
+
+### MNIST-N-SUM
+
+Estimate the probability that two digit sequences (e.g., from MNIST) sum to a specific value.
+
+```bash
+cd dpnl/MNIST-N-SUM
+python run.py
+```
+
+---
+
+## 🛠 Extendability
+
+You can:
+- Implement new symbolic functions (`dpnl/core/symbolic.py`)
+- Create your own oracle (`dpnl/oracles/`)
+- Add logic encodings (`dpnl/logics/`)
+- Define caching strategies (`dpnl/cachings/`)
+
+---
+
+
+# Reproduction of baselines 
 
 ### A-Nesi
 The repository has been cloned from [https://github.com/HEmile/a-nesi](https://github.com/HEmile/a-nesi).
@@ -135,5 +217,6 @@ The files can be found in subdirectories of `.../result_logs`.
 ```
 
 
+# License
 
-
+This project is open for academic and research use. For commercial licensing or inquiries, please contact the author(s).
