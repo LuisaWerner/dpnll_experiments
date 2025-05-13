@@ -4,7 +4,8 @@ It the implementation of DPNL, the result files and the code to reproduce the ba
 It has the following file structure. 
 
 * The folder `dpnl` contains a Python implementation of **Dynamic Probabilistic NeuroSymbolic Logic (DPNL)** — a flexible framework to perform symbolic reasoning over **probabilistic inputs**. It supports custom symbolic functions, logic-based reasoning, and includes comparisons to external systems like **ProbLog**. Instructions to run the code are given in an additional `dpnl/Readme.md` file.
-* The directories `GRAPH_REACHABILTY` and ` MNIST_N_SUM` contain the source code of the symbolic experiments 
+* The directories `GRAPH_REACHABILTY` and ` MNIST_N_SUM` contain the source code of the symbolic experiments
+* The directory `MNIST_N_SUM (PNL)` contains the source code of the neurosymbolic experiments
 * We provide the cloned repositories that we used as baselines and provide the configurations with which we obtained the results reported in the paper. 
 * We further provide the result summary files of DPNL and the baselines on the neurosymbolic task.
 The citations of the baselines are listed below. 
@@ -45,6 +46,7 @@ The citations of the baselines are listed below.
 |
 ├──GRAPH-REACHABILTY
 ├──MNIST-N-SUM
+├──MNIST-N-SUM (PNL)
 
 	 
 ```
@@ -87,6 +89,7 @@ DPNL/
 ├── dpnl/                  # Core implementation of DPNL
 ├── GRAPH-REACHABILITY/    # DPNL applied to probabilistic graph path finding
 ├── MNIST-N-SUM/           # DPNL applied to probabilistic symbolic addition
+├── MNIST-N-SUM (PNL)/     # DPNL applied to neurosymbolic addition
 ```
 
 ---
